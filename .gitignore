@@ -14,4 +14,7 @@
 !var/sessions/.gitkeep
 !var/SymfonyRequirements.php
 /vendor/
+
 /web/bundles/
+.idea/inspectionProfiles/
+vendor/doctrine/orm/docs/en/_theme/
