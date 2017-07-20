@@ -90,7 +90,6 @@ class StudentService
             foreach ($students as $key => $student)
             {
                 /** @var Student $student */
-                print_r($key);
                 $name = preg_replace('/\s+/', '_', strtolower($student->getName()));
                 if($key > 0) {
                     $student->setPath(sprintf("%s_%s", $name, $key));
