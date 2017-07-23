@@ -10,7 +10,7 @@ class StudentService
 {
     /** @var EntityManagerInterface $manager  */
     protected $manager;
-
+    private $cache = [];
 
     public function __construct(EntityManagerInterface $manager)
     {
@@ -18,89 +18,45 @@ class StudentService
         $this->manager->getConfiguration()->setSQLLogger(null);
     }
 
-    public function getStudentsDuplicated()
+    public function getStudents()
     {
         $this->manager->getConfiguration()->setSQLLogger(null);
         $students = $this->manager
             ->getRepository(Student::class)->createQueryBuilder('s')
-            ->select('s.name')
-            ->orderBy('s.name', 'ASC')
-            ->getQuery()
-            ->getResult();
-
-        $names = array_column($students, 'name');
-        $cntArray = array_count_values($names);
-
-        $names = array();
-        $dpNames = array();
-        $unqNames = array();
-        $i = 0;
-        foreach($cntArray as $key => $val){
-            if($val == 1){
-                $i++;
-                $unqNames[$i-1] = $key;
-            } else {
-                $i++;
-                $dpNames[$i-1] = $key;
-            }
-        }
-
-        $names['duplicatedNames'] = $dpNames;
-        $names['uniqueNames'] = $unqNames;
-
-        return $names;
-
-
+            ->select('s')->getQuery()->iterate();
+        return $students;
     }
 
-    public function updatePathStudents($studentsNames)
+    /**
+     * @param string $subject
+     *
+     * @return mixed
+     */
+    public function encodeString($subject)
     {
-        $this->manager->getConfiguration()->setSQLLogger(null);
-        gc_enable();
-        gc_collect_cycles();
+        $sanitized = preg_replace('/\W/u', '_', $subject);
+        $lower = mb_strtolower($sanitized);
+        $trimmed = trim($lower, '_');
+        return preg_replace('/_{2,}/u', '_', $trimmed);
+    }
 
-        $i = 0;
-        foreach ($studentsNames['uniqueNames'] as $name) {
-            $i++;
-            $students = $this->manager->getRepository(Student::class)
-                ->findBy(['name' => $name],['name' => 'ASC']);
-            foreach ($students as $key => $student)
-            {
-                /** @var Student $student */
-                $name = preg_replace('/\s+/', '_', strtolower($student->getName()));
-                if($key > 0) {
-                    $student->setPath(sprintf("%s_%s", $name, $key));
-                } else {
-                    $student->setPath(sprintf("%s", $name));
-                }
-                $this->manager->persist($student);
-
-            }
-            if ($i > 50) {
-
-                gc_enable();
-                gc_collect_cycles();
-                $i = 0;
-            }
+    /**
+     * @param string $path
+     *
+     * @return mixed|string
+     */
+    public function updatePathStudents($path)
+    {
+        $path = $this->encodeString($path);
+        if (isset($this->cache[$path])) {
+            $i = 1;
+            do {
+                $pathCheck = $path . '_' . $i++;
+            } while (isset($this->cache[$pathCheck]));
+            $path = $pathCheck;
         }
 
-        foreach ($studentsNames['duplicatedNames'] as $name) {
-            $students = $this->manager->getRepository(Student::class)
-                ->findBy(['name' => $name],['name' => 'ASC']);
-            foreach ($students as $key => $student)
-            {
-                /** @var Student $student */
-                $name = preg_replace('/\s+/', '_', strtolower($student->getName()));
-                if($key > 0) {
-                    $student->setPath(sprintf("%s_%s", $name, $key));
-                } else {
-                    $student->setPath(sprintf("%s", $name));
-                }
-                $this->manager->persist($student);
-
-            }
-        }
-
-        $this->manager->flush();
+        $this->cache[$path] = true;
+        return $path;
     }
 }

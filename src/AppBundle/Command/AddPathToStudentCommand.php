@@ -24,20 +24,33 @@ class AddPathToStudentCommand extends ContainerAwareCommand
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-
-
-
-        /** @var StudentService $teste */
-        $time_start = microtime(true);
+        /** @var StudentService $studentService */
         $studentService = $this->getContainer()->get('app.exercise_service');
-        $studentsDuplicated = $studentService->getStudentsDuplicated();
-        $studentService->updatePathStudents($studentsDuplicated);
+        $em =$this->getContainer()->get('doctrine.orm.entity_manager');
+
+        $time_start = microtime(true);
+        $students = $studentService->getStudents();
+        $i = 0;
+        foreach ($students as list($student)) {
+            /** @var Student $student */
+            $path = $studentService->updatePathStudents($student->getName());
+            $student->setPath($path);
+            if ($i > 2000) {
+                $em->flush();
+                $em->clear();
+                gc_collect_cycles();
+                $i = 0 ;
+            }
+            ++$i;
+        }
+
+        $em->flush();
         $time_end = microtime(true);
         $memoryUsage = round(memory_get_usage() / (1024 * 1024));
-
         $time = $time_end - $time_start;
         $output->writeln(sprintf('Memory usage: %s MB',$memoryUsage));
         $output->writeln(sprintf('Time: %s s',$time));
+
     }
 
 }
